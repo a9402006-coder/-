@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLEC 資產配置與槓桿曝險評估模型</title>
+    <style>
+        body { font-family: 'Microsoft JhengHei', Arial, sans-serif; padding: 20px; background-color: #f4f7f6; color: #222; }
+        h2, h3 { color: #1B365D; margin-bottom: 10px; }
+        .hint { background-color: #FFF2CC; padding: 10px; border-radius: 5px; font-weight: bold; font-size: 0.9em; margin-bottom: 20px; border: 1px solid #D0D7DE;}
+        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; background-color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        th, td { border: 1px solid #D0D7DE; padding: 10px; text-align: center; font-size: 0.95em; }
+        th { background-color: #1B365D; color: #fff; }
+        .text-left { text-align: left; }
+        .text-right { text-align: right; }
+        input { width: 80px; padding: 5px; text-align: right; background-color: #FFFFCC; border: 1px solid #ccc; font-weight: bold; }
+        .status-good { color: #137333; font-weight: bold; background-color: #E6F4EA; }
+        .status-warn { color: #B06000; font-weight: bold; background-color: #FEF7E0; }
+        .highlight { font-weight: bold; color: #1B365D; }
+    </style>
+</head>
+<body>
+
+    <h2>CLEC 資產配置與槓桿曝險評估模型 (網頁版)</h2>
+    <div class="hint">💡 提示：底色為【淺黃色】的框格為可輸入區塊。更改後下方指標將即時自動重算。單位：萬元。</div>
+
+    <h3>一、資產與負債清單</h3>
+    <table>
+        <tr>
+            <th>項目類別</th><th class="text-left">資產/負債項目</th><th>金額 (萬)</th><th>流動性分類</th><th>市場曝險倍數</th><th>市場曝險額 (萬)</th>
+        </tr>
+        <tr>
+            <td>資產</td><td class="text-left">不動產 (房產)</td>
+            <td><input type="number" id="v_house" value="4000"></td>
+            <td>非流動資產</td><td>0.0</td><td class="text-right" id="r_house_exp">0</td>
+        </tr>
+        <tr>
+            <td>資產</td><td class="text-left">股票部位 (一般個股)</td>
+            <td><input type="number" id="v_stock" value="6500"></td>
+            <td>流動資產</td>
+            <td><input type="number" step="0.1" id="v_stock_m" value="1.0"></td>
+            <td class="text-right" id="r_stock_exp">6,500</td>
+        </tr>
+        <tr>
+            <td>資產</td><td class="text-left">現金及類現金</td>
+            <td><input type="number" id="v_cash" value="300"></td>
+            <td>流動資產</td><td>0.0</td><td class="text-right">0</td>
+        </tr>
+        <tr>
+            <td>負債</td><td class="text-left">房貸 (科一)</td>
+            <td><input type="number" id="v_loan1" value="2700"></td>
+            <td>長期不動產負債</td><td>0.0</td><td class="text-right">0</td>
+        </tr>
+        <tr>
+            <td>負債</td><td class="text-left">理財型房貸 (科四)</td>
+            <td><input type="number" id="v_loan4" value="700"></td>
+            <td>流動性短期負債</td><td>0.0</td><td class="text-right">0</td>
+        </tr>
+        <tr>
+            <td>負債</td><td class="text-left">信用貸款</td>
+            <td><input type="number" id="v_credit" value="300"></td>
+            <td>流動性短期負債</td><td>0.0</td><td class="text-right">0</td>
+        </tr>
+    </table>
+
+    <h3>二、CLEC 資產與槓桿指標計算表</h3>
+    <table>
+        <tr>
+            <th>指標名稱</th><th class="text-left">計算公式</th><th class="text-right">數值 / 倍數</th><th>標準安全區間</th><th>狀態評級</th>
+        </tr>
+        <tr>
+            <td class="text-left">總資產</td><td class="text-left">房產＋股票＋現金</td><td class="text-right highlight" id="r_tot_asset">10,800</td><td>—</td><td>規模衡量</td>
+        </tr>
+        <tr>
+            <td class="text-left">總負債</td><td class="text-left">科一＋科四＋信貸</td><td class="text-right highlight" id="r_tot_liab">3,700</td><td>< 總資產 50%</td><td id="s_tot_liab">健康</td>
+        </tr>
+        <tr>
+            <td class="text-left">總淨資產</td><td class="text-left">總資產－總負債</td><td class="text-right highlight" id="r_net_asset">7,100</td><td>—</td><td>核心淨值</td>
+        </tr>
+        <tr>
+            <td class="text-left">流動資產</td><td class="text-left">股票＋現金</td><td class="text-right highlight" id="r_liq_asset">6,800</td><td>—</td><td>流動水位</td>
+        </tr>
+        <tr>
+            <td class="text-left">流動負債 (短期融資)</td><td class="text-left">科四＋信貸</td><td class="text-right highlight" id="r_liq_liab">1,000</td><td>< 流動資產 30%</td><td id="s_liq_liab">健康</td>
+        </tr>
+        <tr>
+            <td class="text-left">流動淨資產</td><td class="text-left">流動資產－流動負債</td><td class="text-right highlight" id="r_liq_net">5,800</td><td>—</td><td>防禦底層</td>
+        </tr>
+        <tr>
+            <td class="text-left">股票市場曝險</td><td class="text-left">Σ (部位 × 曝險倍數)</td><td class="text-right highlight" id="r_market_exp">6,500</td><td>—</td><td>波動傳導源</td>
+        </tr>
+        <tr>
+            <td class="text-left">流動資產 Beta</td><td class="text-left">股票市場曝險 ÷ 流動資產</td><td class="text-right highlight" id="r_beta_liq">0.96</td><td>0.70 ~ 1.00</td><td>動態Beta</td>
+        </tr>
+        <tr>
+            <td class="text-left">總淨資產 Beta</td><td class="text-left">股票市場曝險 ÷ 總淨資產</td><td class="text-right highlight" id="r_beta_net">0.92</td><td>0.60 ~ 0.90</td><td>動態Beta</td>
+        </tr>
+        <tr>
+            <td class="text-left">流動淨資產曝險槓桿</td><td class="text-left">股票市場曝險 ÷ 流動淨資產</td><td class="text-right highlight" id="r_lev_liq">1.12×</td><td>1.00 ~ 1.30×</td><td>動態槓桿</td>
+        </tr>
+        <tr>
+            <td class="text-left">總資產帳面槓桿</td><td class="text-left">總資產 ÷ 總淨資產</td><td class="text-right highlight" id="r_lev_book">1.52×</td><td>1.20 ~ 1.60×</td><td>健康</td>
+        </tr>
+        <tr>
+            <td class="text-left">總資產曝險槓桿</td><td class="text-left">(房產市值＋股票曝險) ÷ 總淨資產</td><td class="text-right highlight" id="r_lev_exp">1.48×</td><td>1.30 ~ 1.60×</td><td>均衡</td>
+        </tr>
+    </table>
+
+    <h3>三、永續提領率試算 (SWR)</h3>
+    <table style="background-color: #F7FAFC;">
+        <tr>
+            <th style="background-color: #2C5282;">提領基準項目</th><th style="background-color: #2C5282;" class="text-right">基準金額</th><th style="background-color: #2C5282;">年提領率 (%)</th><th style="background-color: #2C5282;" class="text-right">年領 (萬)</th><th style="background-color: #2C5282;" class="text-right">月領 (萬)</th><th style="background-color: #2C5282;" class="text-right">可撐月數(現金計)</th>
+        </tr>
+        <tr>
+            <td class="text-left">流動資產基準 (正確做法)</td><td class="text-right highlight" id="swr_base">6,800</td>
+            <td><input type="number" step="0.1" id="v_swr" value="3.0"> %</td>
+            <td class="text-right highlight" id="swr_year">204.0</td>
+            <td class="text-right highlight" id="swr_month">17.0</td>
+            <td class="text-right highlight" id="swr_months">17.6 個月</td>
+        </tr>
+    </table>
+
+    <script>
+        function fmt(num, dec=0) { return num.toLocaleString('en-US', {minimumFractionDigits: dec, maximumFractionDigits: dec}); }
+        function setStat(elId, isGood, goodTxt, badTxt) {
+            const el = document.getElementById(elId);
+            el.innerText = isGood ? goodTxt : badTxt;
+            el.className = isGood ? 'status-good' : 'status-warn';
+        }
+
+        function calculate() {
+            // Get inputs
+            const h = parseFloat(document.getElementById('v_house').value) || 0;
+            const s = parseFloat(document.getElementById('v_stock').value) || 0;
+            const c = parseFloat(document.getElementById('v_cash').value) || 0;
+            const l1 = parseFloat(document.getElementById('v_loan1').value) || 0;
+            const l4 = parseFloat(document.getElementById('v_loan4').value) || 0;
+            const cred = parseFloat(document.getElementById('v_credit').value) || 0;
+            const s_exp = parseFloat(document.getElementById('v_stock_m').value) || 0;
+            const swr_rate = (parseFloat(document.getElementById('v_swr').value) || 0) / 100;
+
+            // Calculations
+            const marketExp = s * s_exp;
+            document.getElementById('r_stock_exp').innerText = fmt(marketExp);
+            
+            const totAsset = h + s + c;
+            const totLiab = l1 + l4 + cred;
+            const netAsset = totAsset - totLiab;
+            const liqAsset = s + c;
+            const liqLiab = l4 + cred;
+            const liqNet = liqAsset - liqLiab;
+
+            // Updates Table 2
+            document.getElementById('r_tot_asset').innerText = fmt(totAsset);
+            document.getElementById('r_tot_liab').innerText = fmt(totLiab);
+            document.getElementById('r_net_asset').innerText = fmt(netAsset);
+            document.getElementById('r_liq_asset').innerText = fmt(liqAsset);
+            document.getElementById('r_liq_liab').innerText = fmt(liqLiab);
+            document.getElementById('r_liq_net').innerText = fmt(liqNet);
+            document.getElementById('r_market_exp').innerText = fmt(marketExp);
+
+            setStat('s_tot_liab', (totLiab/totAsset) < 0.5, '健康', '警戒');
+            setStat('s_liq_liab', (liqLiab/liqAsset) < 0.3, '健康', '警戒');
+
+            document.getElementById('r_beta_liq').innerText = liqAsset ? fmt(marketExp / liqAsset, 2) : '0.00';
+            document.getElementById('r_beta_net').innerText = netAsset ? fmt(marketExp / netAsset, 2) : '0.00';
+            document.getElementById('r_lev_liq').innerText = liqNet ? fmt(marketExp / liqNet, 2) + '×' : '0.00×';
+            document.getElementById('r_lev_book').innerText = netAsset ? fmt(totAsset / netAsset, 2) + '×' : '0.00×';
+            document.getElementById('r_lev_exp').innerText = netAsset ? fmt((h + marketExp) / netAsset, 2) + '×' : '0.00×';
+
+            // Updates Table 3 (SWR)
+            const yearW = liqAsset * swr_rate;
+            const monthW = yearW / 12;
+            document.getElementById('swr_base').innerText = fmt(liqAsset);
+            document.getElementById('swr_year').innerText = fmt(yearW, 1);
+            document.getElementById('swr_month').innerText = fmt(monthW, 1);
+            document.getElementById('swr_months').innerText = monthW ? fmt(c / monthW, 1) + ' 個月' : '0 個月';
+        }
+
+        // Add event listeners
+        document.querySelectorAll('input').forEach(inp => inp.addEventListener('input', calculate));
+        calculate(); // Init
+    </script>
+</body>
+</html>
